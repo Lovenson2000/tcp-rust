@@ -6,7 +6,7 @@ chmod +x ./run.sh
 
 After entering your password, you can open another terminal and try using netcat to send and receive packet from the ip in the run.sh script (192.168.0.1)
 
-nc 192.168.0.2 443 ()
+nc 192.168.0.2 443 (tcp)
 Or
 nc 192.168.0.3 80 (http)
 
