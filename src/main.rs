@@ -12,7 +12,7 @@ struct Quad {
 
 fn main() -> io::Result<()> {
     let  mut connections :HashMap<Quad, tcp::State> =Default::default();  
-    let network_interface = tun_tap::Iface::new("tun0", tun_tap::Mode::Tun)?;
+    let mut network_interface = tun_tap::Iface::new("tun0", tun_tap::Mode::Tun)?;
     
     let mut buffer = [0u8; 1504];
     loop {
@@ -38,7 +38,9 @@ fn main() -> io::Result<()> {
                         connections.entry(Quad {
                             source: (source, tcp_header.source_port()),
                             destination: (destination, tcp_header.destination_port())
-                        }).or_default().on_packet(ip_header, tcp_header, &buffer[data_start_index..number_of_bytes]);
+                        })
+                        .or_default()
+                        .on_packet(&mut network_interface, ip_header, tcp_header, &buffer[data_start_index..number_of_bytes]);
                     }
                     Err(e) => {
                         eprintln!("Ignoring tcp packet...{:?}", e)
