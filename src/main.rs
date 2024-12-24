@@ -11,7 +11,7 @@ struct Quad {
 }
 
 fn main() -> io::Result<()> {
-    let  mut connections :HashMap<Quad, tcp::State> =Default::default();  
+    let  mut connections :HashMap<Quad, tcp::Connection> = Default::default();  
     let mut network_interface = tun_tap::Iface::new("tun0", tun_tap::Mode::Tun)?;
     
     let mut buffer = [0u8; 1504];
@@ -34,13 +34,30 @@ fn main() -> io::Result<()> {
 
                 match  etherparse::TcpHeaderSlice::from_slice(&buffer[ 4 + ip_header.slice().len()..]) {
                     Ok(tcp_header) => {
+                        use std::collections::hash_map::Entry;
                         let data_start_index = 4 + ip_header.slice().len() + tcp_header.slice().len();
-                        connections.entry(Quad {
+                        match connections.entry(Quad {
                             source: (source, tcp_header.source_port()),
                             destination: (destination, tcp_header.destination_port())
-                        })
-                        .or_default()
-                        .on_packet(&mut network_interface, ip_header, tcp_header, &buffer[data_start_index..number_of_bytes]);
+                        }){
+                            Entry::Occupied(mut c) => {
+                                c.get_mut()
+                                    .on_packet(&mut network_interface, ip_header, tcp_header, &buffer[data_start_index..number_of_bytes])?;
+
+                            }
+                            Entry::Vacant(mut e) => {
+                                if let Some(c) = tcp::Connection::accept(
+                                    &mut network_interface, 
+                                    ip_header, 
+                                    tcp_header, 
+                                    &buffer[data_start_index..number_of_bytes],
+                                )? {
+                                    e.insert(c);
+                                }
+
+                            }
+
+                        }
                     }
                     Err(e) => {
                         eprintln!("Ignoring tcp packet...{:?}", e)
